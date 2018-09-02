@@ -55,7 +55,16 @@ void enter(string & dirname, vector<direct *> & entries,int x, int y){
   	  	char *c;
   	  	string newpath = dirname+"/"+entries[k]->d_name;
   	  		stat(newpath.c_str(),&fileStat);  
-  	  		 printf("%d %-25s",k+1,entries[k]->d_name);
+  	  		string fuc=entries[k]->d_name;
+  	  		if(fuc.length()>19){
+  	  			fuc=fuc.substr(0,18);
+  	  			fuc=fuc+"..";
+  	  		}
+  	  		if(entries[k]->d_type==DT_DIR){
+  	  		 printf("%d \033[1;34m %-24s\033[0m",k+1,fuc.c_str());
+  	  		}else{
+  	  			printf("%d %-24s",k+1,fuc.c_str());
+  	  		}
     printf( (S_ISDIR(fileStat.st_mode)) ? "d" : "-");
     printf( (fileStat.st_mode & S_IRUSR) ? "r" : "-");
     printf( (fileStat.st_mode & S_IWUSR) ? "w" : "-");
@@ -71,6 +80,8 @@ void enter(string & dirname, vector<direct *> & entries,int x, int y){
     printf("%-10s ",pw->pw_name);
     struct group *gp=getgrgid(fileStat.st_gid);
     printf("%-10s ",gp->gr_name);
+    if(fileStat.st_size>10000)
+    	fileStat.st_size=fileStat.st_size%10000;
     printf("%-5d",fileStat.st_size);
     //printf("\t");
         c=ctime(&fileStat.st_mtime);
@@ -82,16 +93,36 @@ void enter(string & dirname, vector<direct *> & entries,int x, int y){
     //printf("%-40s%-10s\t\t%-30s %-10s \t%s\n\n","Name","Permissions","owner and group name","file size","last modified");
 }
 void createf(vector<string> task);
-void perform(vector<string> task){
-	if(task[0]=="createf"){
+void perform(vector<string> task,vector<direct *> & entries){
+	if(task[0]=="create_file"){
 		createf(task);
+	}else if(task[0]=="create_dir"){
+		string don=task[2]+"/"+task[1];
+		printf("\033[2K");
+		mkdir(don.c_str(),NULL);
+		printf("\033[5;31m Diretory created\033[0m");
+	}else if(task[0]=="goto"){
+		enter(task[1],entries,1,20);
+	}else if(task[0]=="delete_file"){
+		remove(task[1].c_str());
+		printf("\033[2K");
+		printf("\033[5;31m File deleted\033[0m");
 	}
+	task.clear();
 }
 void createf(vector<string> task){
 	int len=task.size();
 	string file=task[len-1];
+	string f;
+	chdir(file.c_str());
 	for(int i=1;i<len-1;i++){
-		 fopen(task[i].c_str(), "w");
+		f=file+"/"+task[i];
+		 fopen(f.c_str(), "w");
 	}
+	chdir("..");
+	printf("\033[25;1H");
+			printf("\033[2K");
+			//cout<<f;
+			printf("\033[5;31m File(s) created\033[0m");
 }
 

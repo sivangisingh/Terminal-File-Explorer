@@ -15,22 +15,29 @@ using namespace std;
 string buff = ".";
 string command="";
 static struct termios initial_settings, new_settings;
-void canon();
+void canon(vector<direct *> entries);
 void init_keyboard();
 void close_keyboard();
+std::string GetCurrentWorkingDir( void ) {
+  char home[FILENAME_MAX];
+  GetCurrentDir( home, FILENAME_MAX );
+  std::string current_working_dir(home);
+  return current_working_dir;
+}
 int main()
 {
-	//char buff[FILENAME_MAX];
-  //GetCurrentDir( buff, FILENAME_MAX );
+	
 	printf("\x1b[2J\x1b[1;1H");
  	   int n=0;
  	   std::vector<std::string> v;
  	   vector<direct *> entries;
- 	   struct Stack s1;
+ 	   struct Stack s1,s2;
 	enter(buff,entries,1,20);
 	n=entries.size();
-	string ss ="/home/shivangi/";
-	string home ="/home/shivangi/";
+	string home =GetCurrentWorkingDir();
+	buff=home;
+	enter(buff,entries,1,20);
+	string ss =home;
 	printf("\033[1;1H");
 int x=1,y=20,p=1;
 int c=0;
@@ -65,17 +72,31 @@ while(1){
 		break;
 		}
 		case 10: {
-		    s1.push(buff); 
-			buff=ss+"/"+entries[p-1]->d_name;
-			//s.push(buff);
+			chdir(buff.c_str());
+			s1.push(buff);
+    		if(entries[p-1]->d_type==DT_DIR){
+    			s1.push(buff); 
+    			buff=ss+"/"+entries[p-1]->d_name;
 			ss=buff;
 			x=1;
 			y=20;
 			p=1;
 			enter(buff,entries,1,20);
 			n=entries.size();
-			//buff=buff+"/..";
+			if(n<20)
+				y=n;
 			printf("\033[1;1H");
+            			}
+    		else{
+    			pid_t pin;
+				pin=fork();
+				if(pin==0){
+					string shut=entries[p-1]->d_name;
+				execl("usr/bin/xdg-open","xdg-open",shut.c_str(),NULL);
+				exit(1);
+				}
+    			}
+			chdir("..");
 			break;
 		}
 		case 'h':{
@@ -87,6 +108,8 @@ while(1){
 			buff=ss;
 			enter(ss,entries,1,20);
 			n=entries.size();
+			if(n<20)
+				y=n;
 			printf("\033[1;1H");
 			break;
 		}
@@ -94,17 +117,57 @@ while(1){
 			break;
 		}
 		case 68:{
+			if(!s1.isEmpty()){
+				s2.push(buff);
 			buff=s1.pop();
-			x=20;
-			y=1;
+			chdir(buff.c_str());
+			x=1;
+			p=1;
+			y=20;
 			enter(buff,entries,1,20);
+			n=entries.size();
+			if(n<20)
+				y=n;
+			printf("\033[1;1H");
+			}
+			break;
+		}
+		case 67:{
+			if(!s2.isEmpty()){
+				s1.push(buff);
+				buff=s2.pop();
+				chdir(buff.c_str());
+				x=1;
+			y=20;
+			p=1;
+			enter(buff,entries,1,20);
+			n=entries.size();
+			if(n<20)
+				y=n;
+			printf("\033[1;1H");
+			}
+			break;
+		}
+		case 127:{
+			s1.push(buff);
+			buff=buff+"/..";
+			chdir(buff.c_str());
+			x=1;
+			p=1;
+			y=20;
+			enter(buff,entries,1,20);
+			n=entries.size();
+			if(n<20)
+				y=n;
 			printf("\033[1;1H");
 			break;
 		}
 		case 'q': break;
 	}
-	if(c==':')
-		canon();
+	if(c==':'){
+		canon(entries);
+		p=x;
+	}
 	if(c=='q')
 		break;
 }
@@ -122,7 +185,7 @@ void close_keyboard()
 {
 tcsetattr(0, TCSANOW, &initial_settings);
 }
-void canon(){
+void canon(vector<direct *> entries){
 	printf("\033[25;1H");
 	while(1){
 		int s=getchar();
@@ -131,9 +194,8 @@ void canon(){
 			len=command.size();
 			command=command.substr(0,len-1);
 		}else if(s==27){
-			main();
-		}else if((s>=65 && s<=90) || (s>=97 && s<=122) || (s==32)){
-			command=command+(char)s;
+			printf("\033[1;1H");
+			return;
 		}else if(s==10){
 			flag=1;
 			string str;
@@ -147,16 +209,12 @@ void canon(){
 				i++;
 			}
 			task.push_back(str);
-			printf(" %s ",str.c_str());
 			i++;
 		}
-			/*while(i<len){
-				file=file+command[i++];
-			}*/
 			printf("\033[25;1H");
-			//printf("\033[2K");
-			perform(task);
-			//printf("\n%s  %s\n",file.c_str(),task.c_str());
+			perform(task,entries);
+		}else{
+			command=command+(char)s;
 		}
 		if(flag==0)	{
 			printf("\033[25;1H");
