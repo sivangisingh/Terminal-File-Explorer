@@ -18,6 +18,7 @@ static struct termios initial_settings, new_settings;
 void canon(vector<direct *> entries);
 void init_keyboard();
 void close_keyboard();
+//to fetch current Directory::
 std::string GetCurrentWorkingDir( void ) {
   char home[FILENAME_MAX];
   GetCurrentDir( home, FILENAME_MAX );
@@ -26,30 +27,39 @@ std::string GetCurrentWorkingDir( void ) {
 }
 int main()
 {
-	
+	//blank screen
 	printf("\x1b[2J\x1b[1;1H");
  	   int n=0;
- 	   std::vector<std::string> v;
+ 	   //to store directories and the files within the folder
  	   vector<direct *> entries;
- 	   struct Stack s1,s2;
-	enter(buff,entries,1,20);
-	n=entries.size();
+ 	   //for backword and forward operations
+ 	   struct Stack s1,s2,parent;
+	//getting the current directory
 	string home =GetCurrentWorkingDir();
 	buff=home;
+	 //function call to print first five entries of the folder 
 	enter(buff,entries,1,20);
+	//total size of the folder(i.e. the number of files in it)
+	n=entries.size();
 	string ss =home;
-	printf("\033[1;1H");
-int x=1,y=20,p=1;
+	parent.push(home);
+	//to bring pointer to the first location
+	printf("\033[1;1H"); 
+int x=1,y=20,p=1,flag=1;
 int c=0;
+//initializing to take keyboard inputs
 init_keyboard();
 while(1){
 	c=getchar();
+	//getting input and checking it to do specified operations
 	switch(c){
+		//if up arrow pressed go one pointer up
 		case 65:{
 			if(p>x){
 			p--;
 			printf("\033[%d;1H",p-x+1);			
 		}else if(p>1){
+			//scroll up
 			p--;
 			x--;
 			y--;
@@ -58,11 +68,13 @@ while(1){
 		}
 		break;
 		}
+		//if down arrow pressed go one pointer down 
 		case 66:{
 			if(p<y){
 			p++;
 			printf("\033[%d;1H",p-x+1);
 		}else if(p>=y && p<n){
+			//scroll down
 			p++;
 			y++;
 			x++;
@@ -71,11 +83,12 @@ while(1){
 		}
 		break;
 		}
+		//on pressing enter open directory if the file is of directory type
 		case 10: {
-			chdir(buff.c_str());
-			s1.push(buff);
-    		if(entries[p-1]->d_type==DT_DIR){
-    			s1.push(buff); 
+    		if((entries[p-1]->d_type)==DT_DIR){
+    			chdir(buff.c_str());
+    			s1.push(ss);
+    			parent.push(ss);
     			buff=ss+"/"+entries[p-1]->d_name;
 			ss=buff;
 			x=1;
@@ -86,8 +99,10 @@ while(1){
 			if(n<20)
 				y=n;
 			printf("\033[1;1H");
+			chdir("..");
             			}
     		else{
+    			//code to open file
     			pid_t pin;
 				pin=fork();
 				if(pin==0){
@@ -96,9 +111,9 @@ while(1){
 				exit(1);
 				}
     			}
-			chdir("..");
 			break;
 		}
+		//press h to go to home 
 		case 'h':{
 			s1.push(buff);
 			x=1;
@@ -113,12 +128,18 @@ while(1){
 			printf("\033[1;1H");
 			break;
 		}
+		//to enter command mode
 		case ':':{
 			break;
 		}
+		//on pressing left-arrow key go to previous directory
 		case 68:{
 			if(!s1.isEmpty()){
 				s2.push(buff);
+				if(flag==0){
+					parent.push(buff);
+					flag=1;
+				}
 			buff=s1.pop();
 			chdir(buff.c_str());
 			x=1;
@@ -129,9 +150,13 @@ while(1){
 			if(n<20)
 				y=n;
 			printf("\033[1;1H");
+			}else{
+				ss=home;
+				buff=home;
 			}
 			break;
 		}
+		//on pressing right-arrow key go to previously backed directory
 		case 67:{
 			if(!s2.isEmpty()){
 				s1.push(buff);
@@ -145,23 +170,35 @@ while(1){
 			if(n<20)
 				y=n;
 			printf("\033[1;1H");
+			}else{
+				ss=home;
+				buff=home;
 			}
 			break;
 		}
+		//on pressing backspace key go to parent directory
 		case 127:{
+			if(!parent.isEmpty()){
 			s1.push(buff);
-			buff=buff+"/..";
-			chdir(buff.c_str());
+			ss=parent.pop();
+			flag=0;
+			//chdir(buff.c_str());
 			x=1;
 			p=1;
 			y=20;
-			enter(buff,entries,1,20);
+			enter(ss,entries,1,20);
+			buff=ss;
 			n=entries.size();
 			if(n<20)
 				y=n;
 			printf("\033[1;1H");
+		}else{
+				ss=home;
+				buff=home;
+			}
 			break;
 		}
+		//on pressing q ,quit
 		case 'q': break;
 	}
 	if(c==':'){
@@ -173,6 +210,7 @@ while(1){
 }
 close_keyboard();
 }
+//changing flag values 
 void init_keyboard()
 {
 tcgetattr(0,&initial_settings);
@@ -181,22 +219,27 @@ new_settings.c_lflag &= ~ICANON;
 new_settings.c_lflag &= ~ECHO;
 tcsetattr(0, TCSANOW, &new_settings);
 }
+//changing back the flag values
 void close_keyboard()
 {
 tcsetattr(0, TCSANOW, &initial_settings);
 }
+//function for canonical mode
 void canon(vector<direct *> entries){
 	printf("\033[25;1H");
 	while(1){
 		int s=getchar();
 		int len,flag=0;
+		//on backspace click delete last typed character
 		if(s==127){
 			len=command.size();
 			command=command.substr(0,len-1);
 		}else if(s==27){
+		    //on pressing esc key ko back to normal mode
 			printf("\033[1;1H");
 			return;
 		}else if(s==10){
+		    //on pressing enter do the desired operation
 			flag=1;
 			string str;
 			vector<string> task;
@@ -213,7 +256,9 @@ void canon(vector<direct *> entries){
 		}
 			printf("\033[25;1H");
 			perform(task,entries);
+			command.clear();
 		}else{
+		    //on press of any other key, print it
 			command=command+(char)s;
 		}
 		if(flag==0)	{
