@@ -7,6 +7,7 @@
 #include<cstring>
 #include <sys/dir.h>
 #include<vector>
+#include <fstream>
 #include <dirent.h>
 #include <pwd.h>
 #include<grp.h>
@@ -14,7 +15,7 @@
 using namespace std;
  
 #define MAX 1000
- 
+ //creating stack and its functions 
 class Stack
 {
     int top;
@@ -43,6 +44,7 @@ bool Stack::isEmpty()
 {
     return (top < 0);
 }
+//function to print desired directory elements with its details
 void enter(string & dirname, vector<direct *> & entries,int x, int y){
 	 direct ** darray;
 	 entries.clear();
@@ -80,8 +82,7 @@ void enter(string & dirname, vector<direct *> & entries,int x, int y){
     printf("%-10s ",pw->pw_name);
     struct group *gp=getgrgid(fileStat.st_gid);
     printf("%-10s ",gp->gr_name);
-    if(fileStat.st_size>10000)
-    	fileStat.st_size=fileStat.st_size%10000;
+    fileStat.st_size=fileStat.st_size%1024;
     printf("%-5d",fileStat.st_size);
     //printf("\t");
         c=ctime(&fileStat.st_mtime);
@@ -93,23 +94,52 @@ void enter(string & dirname, vector<direct *> & entries,int x, int y){
     //printf("%-40s%-10s\t\t%-30s %-10s \t%s\n\n","Name","Permissions","owner and group name","file size","last modified");
 }
 void createf(vector<string> task);
-void perform(vector<string> task,vector<direct *> & entries){
+//command mode function to do various operations
+void perform(vector<string> & task,vector<direct *> & entries){
 	if(task[0]=="create_file"){
+		//creating file by calling the function
 		createf(task);
 	}else if(task[0]=="create_dir"){
+		//creating directoy
 		string don=task[2]+"/"+task[1];
 		printf("\033[2K");
 		mkdir(don.c_str(),NULL);
 		printf("\033[5;31m Diretory created\033[0m");
 	}else if(task[0]=="goto"){
+		//goto a perticular location
 		enter(task[1],entries,1,20);
+		printf("\033[25;1H");
+		printf("\033[2K");
+		printf("\033[5;31m %s \033[0m",task[1].c_str());
 	}else if(task[0]=="delete_file"){
+		//to delete file
 		remove(task[1].c_str());
 		printf("\033[2K");
 		printf("\033[5;31m File deleted\033[0m");
+	}else if(task[0]=="rename"){
+		//to rename file
+		rename(task[1].c_str(),task[2].c_str());
+		printf("\033[2K");
+		printf("\033[5;31m File Renamed\033[0m");
+	}else if(task[0]=="copy_file"){
+		//to copy file
+		 std::ifstream  src(task[1], std::ios::binary);
+    std::ofstream  dst(task[2],   std::ios::binary);
+    dst << src.rdbuf();
+    printf("\033[2K");
+    printf("\033[5;31m File Copied\033[0m");
+	}else if(task[0]=="move_file"){
+		//to move file
+		std::ifstream  src(task[1], std::ios::binary);
+    std::ofstream  dst(task[2],   std::ios::binary);
+    dst << src.rdbuf();
+    remove(task[1].c_str());
+    printf("\033[2K");
+    printf("\033[5;31m File Moved\033[0m");
 	}
 	task.clear();
 }
+//program to create file
 void createf(vector<string> task){
 	int len=task.size();
 	string file=task[len-1];
